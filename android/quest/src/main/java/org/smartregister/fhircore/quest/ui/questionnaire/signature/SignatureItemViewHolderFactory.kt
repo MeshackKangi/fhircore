@@ -35,11 +35,6 @@ private const val SIGNATURE_EXTENSION_URL =
 private const val SIGNATURE_EXTENSION_SYSTEM = "http://aidbox.io/questionnaire-itemControl"
 private const val SIGNATURE_EXTENSION_CODE = "signature"
 
-/**
- * Matcher for questionnaire items marked with the Aidbox signature itemControl extension. Used by
- * fhircore's QuestionnaireItemViewHolderFactoryMatchersProvider to decide when to render the
- * signature pad instead of the default attachment picker.
- */
 fun isSignatureItem(item: Questionnaire.QuestionnaireItemComponent): Boolean {
   val extension = item.getExtensionByUrl(SIGNATURE_EXTENSION_URL) ?: return false
   val value = extension.value as? CodeableConcept ?: return false
@@ -89,14 +84,9 @@ object SignatureItemViewHolderFactory :
         val base64 =
           existingAttachment?.data?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
         when {
-          // Has an answer and the pad is empty: this is a saved/loaded signature — show it
-          // locked. If the pad already has content, it's our own just-written stroke, so
-          // leave it (loading would lock the pad mid-draw).
           !base64.isNullOrEmpty() && signaturePad.isEmpty() ->
             signaturePad.loadSignaturePngBase64(base64)
-          // Answer empty and pad empty: nothing to do, just ensure button state is correct.
           base64.isNullOrEmpty() && signaturePad.isEmpty() -> signaturePad.clearSilently()
-          // Otherwise: pad has content, leave it alone (either in-flight write or user drawing).
           else -> Unit
         }
       }

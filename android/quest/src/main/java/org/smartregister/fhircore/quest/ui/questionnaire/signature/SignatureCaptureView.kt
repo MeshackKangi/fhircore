@@ -35,14 +35,6 @@ import android.widget.LinearLayout
 import java.io.ByteArrayOutputStream
 import org.smartregister.fhircore.quest.R
 
-/**
- * Self-contained signature capture widget: a drawing canvas, a "Clear" button, and a primary
- * action button that toggles between "Done" (confirm signature, locks pad) and "Edit" (unlock
- * and allow redraw).
- *
- * Used by the custom SDC ViewHolderFactory for items marked with the
- * questionnaire-itemControl "signature" extension (Aidbox convention).
- */
 class SignatureCaptureView
 @JvmOverloads
 constructor(
@@ -115,14 +107,12 @@ constructor(
 
   fun isLocked(): Boolean = isLocked
 
-  /** Called by the user tapping Clear — should notify the listener once. */
   fun clearByUser() {
     if (isLocked) return
     drawingView.clear()
     notifyChanged(false)
   }
 
-  /** Called from bind() when the answer is empty — must NOT notify (avoids rebind loop). */
   fun clearSilently() {
     suppressListener = true
     try {
@@ -134,7 +124,6 @@ constructor(
     }
   }
 
-  /** Returns the signature as a base64-encoded PNG, or null if nothing has been drawn. */
   fun getSignaturePngBase64(): String? {
     if (drawingView.isEmpty()) return null
     val bitmap = drawingView.exportBitmap()
@@ -143,10 +132,6 @@ constructor(
     return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
   }
 
-  /**
-   * Loads a previously-captured base64 PNG back into the canvas (for editing an existing answer).
-   * Entering via this path implies the signature was previously confirmed, so the pad is locked.
-   */
   fun loadSignaturePngBase64(base64: String) {
     val bytes = Base64.decode(base64, Base64.NO_WRAP)
     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
@@ -162,11 +147,9 @@ constructor(
 
   private fun onPrimaryClicked() {
     if (isLocked) {
-      // Edit: unlock and let the user redraw.
       isLocked = false
       updateUi()
     } else {
-      // Done: confirm the current signature visually and lock the pad.
       if (drawingView.isEmpty()) return
       isLocked = true
       updateUi()
@@ -203,7 +186,6 @@ constructor(
   private fun dpToPx(dp: Int): Int =
     (dp * context.resources.displayMetrics.density).toInt()
 
-  /** The actual drawing surface: touch-driven path drawing with basic smoothing. */
   private class DrawingCanvasView(context: Context) : View(context) {
 
     var onStrokeDrawn: (() -> Unit)? = null
@@ -268,9 +250,6 @@ constructor(
       val w = width.coerceAtLeast(1)
       val h = height.coerceAtLeast(1)
 
-      // Export at half resolution and RGB_565. Signatures are line art on an opaque
-      // white background, so this shrinks the PNG considerably without a visible
-      // loss in quality at normal viewing size.
       val targetW = (w / 2).coerceAtLeast(1)
       val targetH = (h / 2).coerceAtLeast(1)
 
@@ -293,7 +272,6 @@ constructor(
       super.onDraw(canvas)
       loadedBitmap?.let { canvas.drawBitmap(it, 0f, 0f, null) }
       canvas.drawPath(path, paint)
-      // Border drawn last, on top of content, so strokes never cover it.
       val half = borderPaint.strokeWidth / 2f
       val radius = dpToPx(4).toFloat()
       canvas.drawRoundRect(
@@ -311,15 +289,12 @@ constructor(
       if (locked) return false
       when (event.actionMasked) {
         MotionEvent.ACTION_DOWN -> {
-          // Prevent the parent RecyclerView from scrolling while the user is drawing.
           parent?.requestDisallowInterceptTouchEvent(true)
           path.moveTo(event.x, event.y)
-          // Zero-length line with round cap renders a visible dot on a bare tap.
           path.lineTo(event.x, event.y)
           lastX = event.x
           lastY = event.y
           hasContent = true
-          // Notify immediately so the Clear button lights up on the tap itself.
           onStrokeDrawn?.invoke()
         }
         MotionEvent.ACTION_MOVE -> {
@@ -330,7 +305,6 @@ constructor(
           lastY = event.y
         }
         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-          // Re-allow the parent to scroll once the stroke is finished (or cancelled).
           parent?.requestDisallowInterceptTouchEvent(false)
           onStrokeDrawn?.invoke()
         }
